@@ -11,6 +11,7 @@ const Dashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [agentError, setAgentError] = useState(null);
 
     useEffect(() => {
         fetchUserData();
@@ -22,11 +23,13 @@ const Dashboard = () => {
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
+                setAgentError(null);
             } else {
                 router.push('/login');
             }
         } catch (error) {
             console.error('Failed to fetch user data:', error);
+            setAgentError('Failed to connect to server');
         } finally {
             setIsLoading(false);
         }
@@ -39,9 +42,12 @@ const Dashboard = () => {
             
             if (data.success) {
                 window.location.href = data.authUrl;
+            } else {
+                alert('Failed to connect calendar: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Calendar connection error:', error);
+            alert('Failed to connect calendar. Please try again.');
         }
     };
 
@@ -69,10 +75,15 @@ const Dashboard = () => {
             if (data.success) {
                 setChatHistory(prev => [...prev, { type: 'agent', message: data.response }]);
             } else {
-                setChatHistory(prev => [...prev, { type: 'error', message: 'Sorry, I encountered an error.' }]);
+                let errorMessage = 'Sorry, I encountered an error.';
+                if (data.error === 'Agent not found. Please ensure your AI agent is created first.') {
+                    errorMessage = 'Your AI agent needs to be initialized. Please refresh the page or log out and log back in.';
+                }
+                setChatHistory(prev => [...prev, { type: 'error', message: errorMessage }]);
             }
         } catch (error) {
-            setChatHistory(prev => [...prev, { type: 'error', message: 'Failed to send message.' }]);
+            console.error('Chat error:', error);
+            setChatHistory(prev => [...prev, { type: 'error', message: 'Failed to send message. Please check your connection.' }]);
         } finally {
             setIsChatLoading(false);
         }
@@ -96,13 +107,26 @@ const Dashboard = () => {
                 setUser(prev => ({ ...prev, profilePhoto: data.profilePhoto }));
                 setSelectedFile(null);
                 alert('Profile photo updated!');
+            } else {
+                alert('Failed to upload photo: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Photo upload error:', error);
+            alert('Failed to upload photo. Please try again.');
         }
     };
 
-
+    const retryAgentConnection = async () => {
+        setIsLoading(true);
+        try {
+            // Try to trigger agent creation by logging out and back in
+            await fetch('/api/auth/logout', { method: 'POST' });
+            router.push('/login');
+        } catch (error) {
+            console.error('Retry error:', error);
+            setIsLoading(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -127,6 +151,24 @@ const Dashboard = () => {
                         Here's your AI agent dashboard. Manage your profile, check your AI status, and chat with your assistant.
                     </p>
                 </div>
+
+                {/* Error Alert */}
+                {agentError && (
+                    <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <span className="text-red-500 mr-2">⚠️</span>
+                                <span className="text-red-700">{agentError}</span>
+                            </div>
+                            <button
+                                onClick={retryAgentConnection}
+                                className="text-red-600 hover:text-red-800 text-sm underline"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    </div>
+                )}
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Profile Section */}
@@ -215,6 +257,20 @@ const Dashboard = () => {
                                     Connect Google Calendar
                                 </button>
                             )}
+
+                            {user?.aiAgent?.status === 'not_created' && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                                    <p className="text-yellow-800 text-sm">
+                                        Your AI agent is being set up. Please refresh the page or try logging out and back in.
+                                    </p>
+                                    <button
+                                        onClick={retryAgentConnection}
+                                        className="mt-2 text-yellow-700 hover:text-yellow-900 text-sm underline"
+                                    >
+                                        Retry Setup
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -229,7 +285,7 @@ const Dashboard = () => {
                             </div>
                             <div className="flex justify-between">
                                 <span>Joined:</span>
-                                <span>{new Date(user?.createdAt).toLocaleDateString()}</span>
+                                <span>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</span>
                             </div>
                         </div>
                     </div>
@@ -240,13 +296,18 @@ const Dashboard = () => {
                     <div className="mt-8 bg-white rounded-lg shadow">
                         <div className="p-6 border-b border-gray-200">
                             <h2 className="text-lg font-semibold text-gray-900">Chat with your AI Agent</h2>
+                            <p className="text-sm text-gray-500 mt-1">Ask questions, get help with scheduling, or just have a conversation!</p>
                         </div>
                         
                         <div className="p-6">
                             {/* Chat History */}
                             <div className="h-64 overflow-y-auto mb-4 space-y-3 border border-gray-200 rounded p-4">
                                 {chatHistory.length === 0 ? (
-                                    <p className="text-gray-500 text-center">Start a conversation with your AI agent!</p>
+                                    <div className="text-center text-gray-500">
+                                        <div className="mb-2">👋</div>
+                                        <p>Start a conversation with your AI agent!</p>
+                                        <p className="text-xs mt-1">Try asking: "What can you help me with?" or "Do I have any meetings today?"</p>
+                                    </div>
                                 ) : (
                                     chatHistory.map((chat, index) => (
                                         <div key={index} className={`flex ${chat.type === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -254,10 +315,10 @@ const Dashboard = () => {
                                                 chat.type === 'user' 
                                                     ? 'bg-blue-600 text-white'
                                                     : chat.type === 'error'
-                                                    ? 'bg-red-100 text-red-800'
+                                                    ? 'bg-red-100 text-red-800 border border-red-200'
                                                     : 'bg-gray-100 text-gray-800'
                                             }`}>
-                                                <p className="text-sm">{chat.message}</p>
+                                                <p className="text-sm whitespace-pre-wrap">{chat.message}</p>
                                             </div>
                                         </div>
                                     ))
@@ -281,19 +342,66 @@ const Dashboard = () => {
                                     type="text"
                                     value={chatMessage}
                                     onChange={(e) => setChatMessage(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Type your message..."
+                                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                                    placeholder="Type your message... (Press Enter to send)"
                                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    disabled={isChatLoading}
                                 />
                                 <button
                                     onClick={sendMessage}
-                                    disabled={isChatLoading}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400"
+                                    disabled={isChatLoading || !chatMessage.trim()}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
                                 >
-                                    Send
+                                    {isChatLoading ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        'Send'
+                                    )}
                                 </button>
                             </div>
+                            
+                            {/* Quick Suggestions */}
+                            {chatHistory.length === 0 && (
+                                <div className="mt-4">
+                                    <p className="text-xs text-gray-500 mb-2">Quick suggestions:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            "What can you help me with?",
+                                            "Do I have any meetings today?",
+                                            "Help me schedule a meeting",
+                                            "Check my calendar availability"
+                                        ].map((suggestion, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => setChatMessage(suggestion)}
+                                                className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded border text-gray-700"
+                                            >
+                                                {suggestion}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
+                    </div>
+                )}
+                
+                {/* Agent Not Ready Message */}
+                {user?.aiAgent?.status === 'not_created' && (
+                    <div className="mt-8 bg-white rounded-lg shadow p-6 text-center">
+                        <div className="w-16 h-16 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                            <span className="text-2xl">🔧</span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Agent Setup in Progress</h3>
+                        <p className="text-gray-600 mb-4">
+                            Your AI agent is being initialized. This usually takes just a moment.
+                        </p>
+                        <button
+                            onClick={fetchUserData}
+                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        >
+                            Check Status
+                        </button>
                     </div>
                 )}
             </div>
@@ -301,4 +409,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard; 
+export default Dashboard;

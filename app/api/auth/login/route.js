@@ -46,7 +46,7 @@ export async function POST(request) {
         });
 
         // After login, create AI agent for this employee
-        await createAIAgentForUser(user._id.toString());
+        await createAIAgentForUser(user._id.toString(), user.name, user.email, user.timezone);
 
         console.log(`✅ User logged in: ${email}`);
 
@@ -76,39 +76,46 @@ export async function POST(request) {
 }
 
 // Create AI agent for user after login
-async function createAIAgentForUser(userId) {
+async function createAIAgentForUser(userId, name, email, timezone) {
     try {
         const user = await User.findById(userId);
-        if (!user || user.aiAgent.status !== 'not_created') {
+        if (!user) {
+            console.error('User not found for agent creation');
             return;
         }
 
-        // Call Python Flask MCP to create agent
+        // Always try to create/ensure agent exists
         const response = await fetch('http://localhost:5000/create-agent', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                userId: user._id.toString(),
-                name: user.name,
-                email: user.email,
-                timezone: user.timezone
+                userId: userId,
+                name: name,
+                email: email,
+                timezone: timezone
             }),
         });
 
         if (response.ok) {
             const result = await response.json();
             
-            // Update user with agent info
-            user.aiAgent.agentId = result.agentId;
-            user.aiAgent.status = 'created';
-            user.aiAgent.createdAt = new Date();
-            await user.save();
+            // Update user with agent info only if not already set
+            if (user.aiAgent.status === 'not_created') {
+                user.aiAgent.agentId = result.agentId;
+                user.aiAgent.status = 'created';
+                user.aiAgent.createdAt = new Date();
+                await user.save();
+            }
 
-            console.log(`🤖 AI Agent created for ${user.email}: ${result.agentId}`);
+            console.log(`🤖 AI Agent ensured for ${email}: ${result.agentId}`);
+        } else {
+            const errorText = await response.text();
+            console.error('Error response from MCP server:', response.status, errorText);
         }
     } catch (error) {
-        console.error('Error creating AI agent:', error);
+        console.error('Error creating/ensuring AI agent:', error);
+        // Don't fail the login if agent creation fails
     }
-} 
+}
