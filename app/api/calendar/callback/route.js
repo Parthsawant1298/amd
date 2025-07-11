@@ -52,20 +52,34 @@ export async function GET(request) {
             { new: true }
         );
 
-        // Connect calendar to AI agent via Flask MCP
-        await fetch('http://localhost:5000/connect-calendar', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                userId: user._id.toString(),
-                credentials: {
-                    accessToken: tokens.access_token,
-                    refreshToken: tokens.refresh_token
-                }
-            }),
-        });
+        // Connect calendar to AI agent via Flask MCP - WITH PROPER CREDENTIALS!
+        try {
+            const mcpResponse = await fetch('http://localhost:5000/connect-calendar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: user._id.toString(),
+                    credentials: {
+                        accessToken: tokens.access_token,
+                        refreshToken: tokens.refresh_token
+                    }
+                }),
+            });
+
+            const mcpResult = await mcpResponse.json();
+            
+            if (mcpResponse.ok && mcpResult.success) {
+                console.log(`📅 Calendar connected successfully via MCP for ${user.email}`);
+            } else {
+                console.error('MCP Calendar connection failed:', mcpResult);
+                // Still continue - at least MongoDB has the tokens
+            }
+        } catch (mcpError) {
+            console.error('Failed to connect to MCP server:', mcpError);
+            // Continue anyway - MongoDB has the tokens
+        }
 
         console.log(`📅 Calendar connected for ${user.email}`);
 
@@ -75,4 +89,4 @@ export async function GET(request) {
         console.error('Calendar callback error:', error);
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?error=callback_failed`);
     }
-} 
+}
