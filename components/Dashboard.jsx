@@ -128,6 +128,26 @@ const Dashboard = () => {
         }
     };
 
+    const disconnectCalendar = async () => {
+        if (!window.confirm('Are you sure you want to disconnect your Google Calendar?')) return;
+        try {
+            const response = await fetch('/api/calendar/disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await response.json();
+            if (data.success) {
+                await fetchUserData(); // Refresh user state from backend
+                alert('Calendar disconnected successfully!');
+            } else {
+                alert('Failed to disconnect calendar: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Calendar disconnect error:', error);
+            alert('Failed to disconnect calendar. Please try again.');
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
@@ -248,7 +268,19 @@ const Dashboard = () => {
                                     {user?.googleCalendar?.connected ? '✅ Connected' : '❌ Not Connected'}
                                 </span>
                             </div>
-                            
+                            {user?.googleCalendar?.connected ? (
+                                <div className="space-y-2">
+                                    <div className="text-sm text-green-600 font-medium">
+                                        ✅ Calendar Connected
+                                    </div>
+                                    <button
+                                        onClick={disconnectCalendar}
+                                        className="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 text-sm"
+                                    >
+                                        Disconnect Calendar
+                                    </button>
+                                </div>
+                            ) : null}
                             {!user?.googleCalendar?.connected && (
                                 <button
                                     onClick={connectCalendar}
