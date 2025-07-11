@@ -1,7 +1,7 @@
-import dynamic from 'next/dynamic';
-
-const RegisterPage = dynamic(() => import('@/components/RegisterPage'), { ssr: false });
+import Registeritem from '@/components/RegisterPage';
 
 export default function Register() {
-  return <RegisterPage />;
+  return (
+  <Registeritem />
+  );
 } 

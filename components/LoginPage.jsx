@@ -3,6 +3,58 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Brain, Eye, EyeOff, Loader2 } from 'lucide-react';
+
+const Input = ({ label, type, placeholder, value, onChange, error }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === 'password';
+    const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
+    return (
+        <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="relative">
+                <input
+                    type={inputType}
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                        error ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                    } focus:outline-none focus:ring-2 text-gray-900 placeholder-gray-500 transition-colors`}
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={onChange}
+                />
+                {isPassword && (
+                    <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowPassword(!showPassword)}
+                    >
+                        {showPassword ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                        ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                        )}
+                    </button>
+                )}
+            </div>
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
+    );
+};
+
+const Button = ({ children, type = "button", disabled = false, loading = false, onClick }) => {
+    return (
+        <button 
+            type={type}
+            onClick={onClick}
+            disabled={disabled || loading}
+            className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+        >
+            {loading && <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />}
+            {children}
+        </button>
+    );
+};
 
 const LoginPage = () => {
     const router = useRouter();
@@ -22,13 +74,27 @@ const LoginPage = () => {
         }
     }, [searchParams]);
 
+    const validateForm = () => {
+        const newErrors = {};
+        
+        if (!formData.email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+            newErrors.email = 'Please enter a valid email address';
+        }
+        
+        if (!formData.password) {
+            newErrors.password = 'Password is required';
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.email || !formData.password) {
-            setErrors({ submit: 'Email and password are required' });
-            return;
-        }
+        if (!validateForm()) return;
         
         setIsLoading(true);
         setErrors({});
@@ -39,7 +105,10 @@ const LoginPage = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    email: formData.email.trim(),
+                    password: formData.password,
+                }),
             });
 
             const data = await response.json();
@@ -47,94 +116,114 @@ const LoginPage = () => {
             if (response.ok) {
                 router.push('/dashboard');
             } else {
-                setErrors({ submit: data.error || 'Login failed' });
+                setErrors(prev => ({
+                    ...prev,
+                    submit: data.error || 'Login failed'
+                }));
             }
         } catch (error) {
-            setErrors({ submit: 'Network error' });
+            setErrors(prev => ({
+                ...prev,
+                submit: error.message || 'Login failed. Please try again.'
+            }));
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-4">
-            <div className="max-w-md w-full">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-                    <p className="text-gray-600">Sign in to your account</p>
-                </div>
-
-                {/* Success Message */}
-                {showSuccess && (
-                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-sm text-green-600">
-                            ✅ Account created successfully! Please log in.
-                        </p>
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="flex justify-center">
+                    <div className="flex items-center gap-3">
+                        <Brain className="h-8 w-8 text-blue-600" />
+                        <span className="text-2xl font-bold text-gray-900">SmartCalendarAI</span>
                     </div>
-                )}
+                </div>
+                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    Sign in to your account
+                </h2>
+                <p className="mt-2 text-center text-sm text-gray-600">
+                    Or{' '}
+                    <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                        create a new account
+                    </Link>
+                </p>
+            </div>
 
-                {/* Form */}
-                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-8">
-                    <div className="space-y-6">
-                        {/* Email */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Email Address
-                            </label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Enter your email"
-                            />
+            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                    {/* Success Message */}
+                    {showSuccess && (
+                        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-green-800">
+                                        Account created successfully! Please sign in.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        <Input
+                            label="Email address"
+                            type="email"
+                            placeholder="Enter your email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            error={errors.email}
+                        />
+                        
+                        <Input
+                            label="Password"
+                            type="password"
+                            placeholder="Enter your password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({...formData, password: e.target.value})}
+                            error={errors.password}
+                        />
+
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <input
+                                    id="remember-me"
+                                    name="remember-me"
+                                    type="checkbox"
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                                    Remember me
+                                </label>
+                            </div>
+
+                            <div className="text-sm">
+                                <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+                                    Forgot your password?
+                                </a>
+                            </div>
                         </div>
 
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Password
-                            </label>
-                            <input
-                                type="password"
-                                value={formData.password}
-                                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Enter your password"
-                            />
-                        </div>
-
-                        {/* Error Message */}
                         {errors.submit && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                                <p className="text-sm text-red-600">{errors.submit}</p>
+                            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                                {errors.submit}
                             </div>
                         )}
 
-                        {/* Submit Button */}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={isLoading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                        >
-                            {isLoading ? 'Signing in...' : 'Sign In'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Register Link */}
-                <div className="text-center mt-6">
-                    <p className="text-gray-600">
-                        Don't have an account?{' '}
-                        <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                            Create one
-                        </Link>
-                    </p>
+                        <Button type="submit" disabled={isLoading} loading={isLoading}>
+                            {isLoading ? 'Signing in...' : 'Sign in'}
+                        </Button>
+                    </form>
                 </div>
             </div>
         </div>
     );
 };
 
-export default LoginPage; 
+export default LoginPage;
