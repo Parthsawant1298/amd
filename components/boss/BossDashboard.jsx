@@ -2,10 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Building2, Users, TrendingUp, Calendar } from 'lucide-react';
 
-const Dashboard = () => {
+const BossDashboard = () => {
     const router = useRouter();
-    const [user, setUser] = useState(null);
+    const [boss, setBoss] = useState(null);
     const [chatMessage, setChatMessage] = useState('');
     const [chatHistory, setChatHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -14,40 +15,24 @@ const Dashboard = () => {
     const [agentError, setAgentError] = useState(null);
 
     useEffect(() => {
-        fetchUserData();
+        fetchBossData();
     }, []);
 
-    const fetchUserData = async () => {
+    const fetchBossData = async () => {
         try {
-            const response = await fetch('/api/agent/status');
+            const response = await fetch('/api/boss/agent/status');
             if (response.ok) {
                 const data = await response.json();
-                setUser(data.user);
+                setBoss(data.boss);
                 setAgentError(null);
             } else {
-                router.push('/login');
+                router.push('/boss/login');
             }
         } catch (error) {
-            console.error('Failed to fetch user data:', error);
+            console.error('Failed to fetch boss data:', error);
             setAgentError('Failed to connect to server');
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const connectCalendar = async () => {
-        try {
-            const response = await fetch('/api/calendar/connect');
-            const data = await response.json();
-            
-            if (data.success) {
-                window.location.href = data.authUrl;
-            } else {
-                alert('Failed to connect calendar: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Calendar connection error:', error);
-            alert('Failed to connect calendar. Please try again.');
         }
     };
 
@@ -58,10 +43,10 @@ const Dashboard = () => {
         const userMessage = chatMessage;
         setChatMessage('');
         
-        setChatHistory(prev => [...prev, { type: 'user', message: userMessage }]);
+        setChatHistory(prev => [...prev, { type: 'boss', message: userMessage }]);
         
         try {
-            const response = await fetch('/api/agent/chat', {
+            const response = await fetch('/api/boss/agent/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -75,13 +60,13 @@ const Dashboard = () => {
                 setChatHistory(prev => [...prev, { type: 'agent', message: data.response }]);
             } else {
                 let errorMessage = 'Sorry, I encountered an error.';
-                if (data.error === 'Agent not found. Please ensure your AI agent is created first.') {
-                    errorMessage = 'Your AI agent needs to be initialized. Please refresh the page or log out and log back in.';
+                if (data.error === 'Boss AI Agent not found') {
+                    errorMessage = 'Your Boss AI agent needs to be initialized. Please refresh the page or log out and log back in.';
                 }
                 setChatHistory(prev => [...prev, { type: 'error', message: errorMessage }]);
             }
         } catch (error) {
-            console.error('Chat error:', error);
+            console.error('Boss chat error:', error);
             setChatHistory(prev => [...prev, { type: 'error', message: 'Failed to send message. Please check your connection.' }]);
         } finally {
             setIsChatLoading(false);
@@ -95,7 +80,7 @@ const Dashboard = () => {
         formData.append('photo', selectedFile);
         
         try {
-            const response = await fetch('/api/user/upload-photo', {
+            const response = await fetch('/api/boss/user/upload-photo', {
                 method: 'POST',
                 body: formData,
             });
@@ -103,7 +88,7 @@ const Dashboard = () => {
             const data = await response.json();
             
             if (data.success) {
-                setUser(prev => ({ ...prev, profilePhoto: data.profilePhoto }));
+                setBoss(prev => ({ ...prev, profilePhoto: data.profilePhoto }));
                 setSelectedFile(null);
                 alert('Profile photo updated!');
             } else {
@@ -118,31 +103,11 @@ const Dashboard = () => {
     const retryAgentConnection = async () => {
         setIsLoading(true);
         try {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            router.push('/login');
+            await fetch('/api/boss/auth/logout', { method: 'POST' });
+            router.push('/boss/login');
         } catch (error) {
             console.error('Retry error:', error);
             setIsLoading(false);
-        }
-    };
-
-    const disconnectCalendar = async () => {
-        if (!window.confirm('Are you sure you want to disconnect your Google Calendar?')) return;
-        try {
-            const response = await fetch('/api/calendar/disconnect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
-            const data = await response.json();
-            if (data.success) {
-                await fetchUserData();
-                alert('Calendar disconnected successfully!');
-            } else {
-                alert('Failed to disconnect calendar: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Calendar disconnect error:', error);
-            alert('Failed to disconnect calendar. Please try again.');
         }
     };
 
@@ -151,7 +116,7 @@ const Dashboard = () => {
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600 font-medium">Loading Dashboard...</p>
+                    <p className="text-gray-600 font-medium">Loading Boss Dashboard...</p>
                 </div>
             </div>
         );
@@ -164,14 +129,38 @@ const Dashboard = () => {
                 <div className="max-w-7xl mx-auto px-6 py-8">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">
-                                Welcome back, {user?.name}
+                            <h1 className="text-3xl font-bold text-black">
+                                Welcome back, {boss?.name}
                             </h1>
                             <p className="text-gray-600 mt-2">
-                                Manage your AI agent, calendar integration, and productivity settings
+                                Manage your company, team, and AI-powered business operations
                             </p>
+                            <div className="flex items-center mt-3 space-x-4">
+                                <div className="flex items-center space-x-2">
+                                    <Building2 size={16} className="text-blue-600" />
+                                    <span className="text-sm text-black font-medium">{boss?.company}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">•</span>
+                                    <span className="text-sm text-black">{boss?.position}</span>
+                                </div>
+                            </div>
                         </div>
-
+                        <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                                <p className="text-sm text-gray-500">Boss AI Status</p>
+                                <div className="flex items-center mt-1">
+                                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                                        boss?.bossAgent?.status === 'active' ? 'bg-green-500' : 
+                                        boss?.bossAgent?.status === 'created' ? 'bg-blue-600' : 'bg-gray-400'
+                                    }`}></div>
+                                    <span className="text-sm font-medium text-black">
+                                        {boss?.bossAgent?.status === 'active' ? 'Active' : 
+                                         boss?.bossAgent?.status === 'created' ? 'Ready' : 'Initializing'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -184,7 +173,7 @@ const Dashboard = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center">
                                     <div className="w-5 h-5 text-red-500 mr-3">⚠</div>
-                                    <span className="text-gray-900 font-medium">{agentError}</span>
+                                    <span className="text-black font-medium">{agentError}</span>
                                 </div>
                                 <button
                                     onClick={retryAgentConnection}
@@ -196,27 +185,76 @@ const Dashboard = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                                <p className="text-2xl font-bold text-black">24</p>
+                            </div>
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <Users className="w-6 h-6 text-blue-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">This Month Meetings</p>
+                                <p className="text-2xl font-bold text-black">157</p>
+                            </div>
+                            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                <Calendar className="w-6 h-6 text-green-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Productivity Score</p>
+                                <p className="text-2xl font-bold text-black">94%</p>
+                            </div>
+                            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <TrendingUp className="w-6 h-6 text-purple-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">AI Efficiency</p>
+                                <p className="text-2xl font-bold text-black">89%</p>
+                            </div>
+                            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-6 h-6 text-orange-600" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 {/* Main Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Profile Card */}
+                    {/* Boss Profile Card */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Settings</h2>
+                            <h2 className="text-lg font-semibold text-black mb-6">Boss Profile</h2>
                             
                             <div className="text-center mb-6">
                                 <div className="w-24 h-24 mx-auto mb-4 relative">
-                                    {user?.profilePhoto ? (
+                                    {boss?.profilePhoto ? (
                                         <img
-                                            src={user.profilePhoto}
-                                            alt="Profile"
+                                            src={boss.profilePhoto}
+                                            alt="Boss Profile"
                                             className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                                         />
                                     ) : (
                                         <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center">
-                                            <span className="text-gray-600 text-xl font-medium">
-                                                {user?.name?.charAt(0)?.toUpperCase()}
-                                            </span>
+                                            <Building2 size={32} className="text-blue-600" />
                                         </div>
                                     )}
                                 </div>
@@ -241,50 +279,52 @@ const Dashboard = () => {
                             
                             <div className="space-y-4 border-t border-gray-100 pt-6">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-black">Email</span>
-                                    <span className="text-sm text-black">{user?.email}</span>
+                                    <span className="text-sm font-medium text-gray-600">Email</span>
+                                    <span className="text-sm text-black">{boss?.email}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-black">Timezone</span>
-                                    <span className="text-sm text-black">{user?.timezone}</span>
+                                    <span className="text-sm font-medium text-gray-600">Company</span>
+                                    <span className="text-sm text-black">{boss?.company}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-black">Member Since</span>
-                                    <span className="text-sm text-black">
-                                        {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
-                                    </span>
+                                    <span className="text-sm font-medium text-gray-600">Position</span>
+                                    <span className="text-sm text-black">{boss?.position}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-gray-600">Timezone</span>
+                                    <span className="text-sm text-black">{boss?.timezone}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* AI Agent Status Card */}
+                    {/* Boss AI Agent Status Card */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-6">AI Agent Status</h2>
+                            <h2 className="text-lg font-semibold text-black mb-6">Boss AI Agent</h2>
                             
                             <div className="space-y-6">
                                 {/* Agent Status */}
                                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                     <div className="flex items-center">
                                         <div className={`w-3 h-3 rounded-full mr-3 ${
-                                            user?.aiAgent?.status === 'calendar_connected' ? 'bg-green-500' : 
-                                            user?.aiAgent?.status === 'created' ? 'bg-blue-600' : 'bg-gray-400'
+                                            boss?.bossAgent?.status === 'active' ? 'bg-green-500' : 
+                                            boss?.bossAgent?.status === 'created' ? 'bg-blue-600' : 'bg-gray-400'
                                         }`}></div>
                                         <div>
-                                            <p className="text-sm font-medium text-black">Agent Status</p>
+                                            <p className="text-sm font-medium text-black">Boss AI Status</p>
                                             <p className="text-xs text-black">
-                                                {user?.aiAgent?.status === 'calendar_connected' ? 'Fully Active' : 
-                                                 user?.aiAgent?.status === 'created' ? 'Ready to Connect' : 'Setting Up'}
+                                                {boss?.bossAgent?.status === 'active' ? 'Fully Operational' : 
+                                                 boss?.bossAgent?.status === 'created' ? 'Ready for Management' : 'Setting Up'}
                                             </p>
                                         </div>
                                     </div>
                                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                        user?.aiAgent?.status === 'calendar_connected' ? 'bg-green-100 text-green-800' : 
-                                        user?.aiAgent?.status === 'created' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                        boss?.bossAgent?.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                        boss?.bossAgent?.status === 'created' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
-                                        {user?.aiAgent?.status === 'calendar_connected' ? 'Active' : 
-                                         user?.aiAgent?.status === 'created' ? 'Ready' : 'Pending'}
+                                        {boss?.bossAgent?.status === 'active' ? 'Active' : 
+                                         boss?.bossAgent?.status === 'created' ? 'Ready' : 'Pending'}
                                     </span>
                                 </div>
                                 
@@ -292,44 +332,36 @@ const Dashboard = () => {
                                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                     <div className="flex items-center">
                                         <div className={`w-3 h-3 rounded-full mr-3 ${
-                                            user?.googleCalendar?.connected ? 'bg-green-500' : 'bg-gray-400'
+                                            boss?.googleCalendar?.connected ? 'bg-green-500' : 'bg-gray-400'
                                         }`}></div>
                                         <div>
                                             <p className="text-sm font-medium text-black">Google Calendar</p>
                                             <p className="text-xs text-black">
-                                                {user?.googleCalendar?.connected ? 'Connected & Synced' : 'Not Connected'}
+                                                {boss?.googleCalendar?.connected ? 'Connected & Synced' : 'Not Connected'}
                                             </p>
                                         </div>
                                     </div>
                                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                        user?.googleCalendar?.connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                        boss?.googleCalendar?.connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
-                                        {user?.googleCalendar?.connected ? 'Active' : 'Inactive'}
+                                        {boss?.googleCalendar?.connected ? 'Active' : 'Inactive'}
                                     </span>
                                 </div>
 
                                 {/* Action Buttons */}
                                 <div className="space-y-3 pt-4 border-t border-gray-100">
-                                    {user?.googleCalendar?.connected ? (
+                                    {!boss?.googleCalendar?.connected && (
                                         <button
-                                            onClick={disconnectCalendar}
-                                            className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                                        >
-                                            Disconnect Calendar
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={connectCalendar}
                                             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                                         >
                                             Connect Google Calendar
                                         </button>
                                     )}
 
-                                    {user?.aiAgent?.status === 'not_created' && (
+                                    {boss?.bossAgent?.status === 'not_created' && (
                                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                                             <p className="text-black text-sm mb-3">
-                                                Your AI agent is being initialized. This usually takes just a moment.
+                                                Your Boss AI agent is being initialized. This usually takes just a moment.
                                             </p>
                                             <button
                                                 onClick={retryAgentConnection}
@@ -344,24 +376,24 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* Quick Info Card */}
+                    {/* Boss System Information */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-6">System Information</h2>
+                            <h2 className="text-lg font-semibold text-black mb-6">Management System</h2>
                             
                             <div className="space-y-4">
                                 <div className="p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-xs font-medium text-black uppercase tracking-wide mb-1">Agent ID</p>
+                                    <p className="text-xs font-medium text-black uppercase tracking-wide mb-1">Boss Agent ID</p>
                                     <p className="text-sm font-mono text-black break-all">
-                                        {user?.aiAgent?.agentId || 'Pending Creation'}
+                                        {boss?.bossAgent?.agentId || 'Pending Creation'}
                                     </p>
                                 </div>
                                 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center p-3 bg-blue-50 rounded-lg">
                                         <p className="text-xl font-bold text-blue-600">
-                                            {user?.aiAgent?.status === 'calendar_connected' ? '100%' : 
-                                             user?.aiAgent?.status === 'created' ? '75%' : '25%'}
+                                            {boss?.bossAgent?.status === 'active' ? '100%' : 
+                                             boss?.bossAgent?.status === 'created' ? '75%' : '25%'}
                                         </p>
                                         <p className="text-xs text-black mt-1">Setup Complete</p>
                                     </div>
@@ -370,17 +402,27 @@ const Dashboard = () => {
                                         <p className="text-xs text-black mt-1">Availability</p>
                                     </div>
                                 </div>
+
+                                <div className="pt-4 border-t border-gray-100">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-sm font-medium text-black">Company Performance</span>
+                                        <span className="text-sm text-green-600 font-medium">+12%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div className="bg-green-500 h-2 rounded-full" style={{width: '89%'}}></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Chat Interface */}
-                {user?.aiAgent?.status !== 'not_created' && (
+                {/* Boss AI Chat Interface */}
+                {boss?.bossAgent?.status !== 'not_created' && (
                     <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">AI Assistant</h2>
-                            <p className="text-gray-600 mt-1">Ask questions, schedule events, or get help with your calendar</p>
+                            <h2 className="text-lg font-semibold text-black">Boss AI Assistant</h2>
+                            <p className="text-gray-600 mt-1">Manage your team, analyze performance, schedule meetings, and get business insights</p>
                         </div>
                         
                         <div className="p-6">
@@ -389,20 +431,20 @@ const Dashboard = () => {
                                 {chatHistory.length === 0 ? (
                                     <div className="text-center text-gray-500 py-12">
                                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <span className="text-blue-600 text-xl">🤖</span>
+                                            <Building2 className="text-blue-600" size={24} />
                                         </div>
-                                        <p className="font-medium text-gray-900 mb-2">Ready to help you!</p>
-                                        <p className="text-sm">Start a conversation with your AI assistant</p>
+                                        <p className="font-medium text-black mb-2">Your Boss AI is ready!</p>
+                                        <p className="text-sm">Ask about team management, business insights, or schedule coordination</p>
                                     </div>
                                 ) : (
                                     chatHistory.map((chat, index) => (
-                                        <div key={index} className={`flex ${chat.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div key={index} className={`flex ${chat.type === 'boss' ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-md px-4 py-3 rounded-lg ${
-                                                chat.type === 'user' 
+                                                chat.type === 'boss' 
                                                     ? 'bg-blue-600 text-white'
                                                     : chat.type === 'error'
                                                     ? 'bg-red-50 text-red-800 border border-red-200'
-                                                    : 'bg-white text-gray-900 border border-gray-200'
+                                                    : 'bg-white text-black border border-gray-200'
                                             }`}>
                                                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{chat.message}</p>
                                             </div>
@@ -429,7 +471,7 @@ const Dashboard = () => {
                                     value={chatMessage}
                                     onChange={(e) => setChatMessage(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                                    placeholder="Type your message here..."
+                                    placeholder="Ask your Boss AI anything..."
                                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                     disabled={isChatLoading}
                                 />
@@ -446,23 +488,25 @@ const Dashboard = () => {
                                 </button>
                             </div>
                             
-                            {/* Quick Suggestions */}
+                            {/* Boss Quick Commands */}
                             {chatHistory.length === 0 && (
                                 <div className="mt-6 border-t border-gray-200 pt-6">
-                                    <p className="text-sm font-medium text-gray-700 mb-3">Try these commands:</p>
+                                    <p className="text-sm font-medium text-black mb-3">Boss Commands:</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {[
-                                            "What can you help me with?",
-                                            "Do I have any meetings today?",
-                                            "Schedule a meeting tomorrow",
-                                            "Check my calendar availability"
-                                        ].map((suggestion, index) => (
+                                            "Show team performance metrics",
+                                            "Schedule all-hands meeting",
+                                            "Analyze this month's productivity",
+                                            "Get department status reports",
+                                            "Plan quarterly business review",
+                                            "Review employee schedules"
+                                        ].map((command, index) => (
                                             <button
                                                 key={index}
-                                                onClick={() => setChatMessage(suggestion)}
-                                                className="text-left px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-200 text-sm text-gray-700 transition-colors"
+                                                onClick={() => setChatMessage(command)}
+                                                className="text-left px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-200 text-sm text-black transition-colors"
                                             >
-                                                {suggestion}
+                                                {command}
                                             </button>
                                         ))}
                                     </div>
@@ -472,19 +516,19 @@ const Dashboard = () => {
                     </div>
                 )}
                 
-                {/* Agent Setup Required */}
-                {user?.aiAgent?.status === 'not_created' && (
+                {/* Boss Agent Setup Required */}
+                {boss?.bossAgent?.status === 'not_created' && (
                     <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-8 text-center">
                             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <span className="text-2xl">⚙️</span>
+                                <Building2 size={32} className="text-blue-600" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Agent Initialization</h3>
+                            <h3 className="text-xl font-semibold text-black mb-3">Boss AI Agent Initialization</h3>
                             <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                                Your AI agent is being set up. This process usually completes within a few moments.
+                                Your Boss AI agent is being set up with management capabilities. This process usually completes within a few moments.
                             </p>
                             <button
-                                onClick={fetchUserData}
+                                onClick={fetchBossData}
                                 className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                             >
                                 Check Status
@@ -497,4 +541,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default BossDashboard;

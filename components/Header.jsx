@@ -1,12 +1,13 @@
 "use client"
 import { Brain } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const headerRef = useRef(null)
   
   // Navigation items
@@ -16,6 +17,28 @@ const Header = () => {
     { name: "FAQ", path: "/faq" },
     { name: "Contact Us", path: "/contact" },
   ]
+  
+  // Handle login button click with auth check
+  const handleLoginClick = async (e) => {
+    e.preventDefault()
+    
+    try {
+      const response = await fetch('/api/auth/user')
+      if (response.ok) {
+        // User already logged in - redirect to dashboard
+        router.push('/dashboard')
+      } else {
+        // User not logged in - go to login page
+        router.push('/login')
+      }
+    } catch (error) {
+      // Error - go to login page
+      router.push('/login')
+    }
+    
+    // Close mobile menu if open
+    setIsMobileMenuOpen(false)
+  }
   
   // Close mobile menu on outside click and escape
   useEffect(() => {
@@ -94,13 +117,14 @@ const Header = () => {
           {/* Right side */}
           <div className="flex items-center gap-4">
             {/* Login Button - Desktop */}
-            <Link href="/login" className="hidden lg:block">
+            <div className="hidden lg:block">
               <button 
+                onClick={handleLoginClick}
                 className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200"
               >
                 Login
               </button>
-            </Link>
+            </div>
             
             {/* Mobile Menu Button */}
             <button 
@@ -152,13 +176,12 @@ const Header = () => {
             
             {/* Login Button - Mobile */}
             <div className="flex justify-center pt-2 pb-2">
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                <button 
-                  className="bg-blue-600 text-white px-8 py-3 rounded-lg font-medium min-w-[140px] hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Login
-                </button>
-              </Link>
+              <button 
+                onClick={handleLoginClick}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-medium min-w-[140px] hover:bg-blue-700 transition-colors duration-200"
+              >
+                Login
+              </button>
             </div>
           </div>
         </div>
