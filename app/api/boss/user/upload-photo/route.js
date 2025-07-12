@@ -1,10 +1,11 @@
-// app/api/boss/user/update-profile/route.js
+// app/api/boss/user/upload-photo/route.js
 import connectDB from '@/lib/mongodb';
 import Boss from '@/models/Boss';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import cloudinary from '@/lib/cloudinary';
 
-export async function PUT(request) {
+export async function POST(request) {
     try {
         // Check boss authentication
         const cookieStore = await cookies();
@@ -27,63 +28,75 @@ export async function PUT(request) {
             );
         }
 
-        const { name, company, position, timezone } = await request.json();
+        const formData = await request.formData();
+        const file = formData.get('photo');
 
-        // Basic validation
-        if (!name || !company || !position || !timezone) {
+        if (!file) {
             return NextResponse.json(
-                { error: 'All fields are required' },
+                { error: 'No photo file provided' },
                 { status: 400 }
             );
         }
 
-        // Validate name
-        if (name.trim().length < 2) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
             return NextResponse.json(
-                { error: 'Name must be at least 2 characters' },
+                { error: 'File must be an image' },
                 { status: 400 }
             );
         }
 
-        // Validate company
-        if (company.trim().length < 2) {
+        // Validate file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
             return NextResponse.json(
-                { error: 'Company name must be at least 2 characters' },
+                { error: 'File size must be less than 5MB' },
                 { status: 400 }
             );
         }
 
-        // Update boss profile
-        const updatedBoss = await Boss.findByIdAndUpdate(
-            bossId,
-            {
-                name: name.trim(),
-                company: company.trim(),
-                position: position.trim(),
-                timezone: timezone
-            },
-            { new: true, runValidators: true }
-        );
+        try {
+            // Convert file to base64 for Cloudinary upload
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-        console.log(`📝 Boss profile updated: ${updatedBoss.email}`);
+            // Upload to Cloudinary
+            const uploadResponse = await cloudinary.uploader.upload(base64, {
+                folder: 'boss-profiles',
+                public_id: `boss_${bossId}_${Date.now()}`,
+                transformation: [
+                    { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+                    { quality: 'auto', format: 'auto' }
+                ]
+            });
 
-        return NextResponse.json({
-            success: true,
-            message: 'Profile updated successfully',
-            boss: {
-                id: updatedBoss._id,
-                name: updatedBoss.name,
-                email: updatedBoss.email,
-                company: updatedBoss.company,
-                position: updatedBoss.position,
-                timezone: updatedBoss.timezone
-            }
-        });
+            // Update boss with new profile photo URL
+            const updatedBoss = await Boss.findByIdAndUpdate(
+                bossId,
+                { profilePhoto: uploadResponse.secure_url },
+                { new: true }
+            );
+
+            console.log(`📸 Boss profile photo updated: ${boss.email}`);
+
+            return NextResponse.json({
+                success: true,
+                message: 'Profile photo updated successfully',
+                profilePhoto: uploadResponse.secure_url
+            });
+
+        } catch (uploadError) {
+            console.error('Cloudinary upload error:', uploadError);
+            return NextResponse.json(
+                { error: 'Failed to upload image' },
+                { status: 500 }
+            );
+        }
 
     } catch (error) {
-        console.error('Boss profile update error:', error);
+        console.error('Boss photo upload error:', error);
         return NextResponse.json(
-            { error: 'Failed to update profile' },
+            { error: 'Failed to upload profile photo' },
             { status: 500 }
         );
     }

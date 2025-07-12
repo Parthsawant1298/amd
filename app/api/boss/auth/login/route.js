@@ -45,8 +45,8 @@ export async function POST(request) {
             path: '/'
         });
 
-        // Create Boss AI Agent after login
-        await createBossAIAgent(boss._id.toString(), boss.name, boss.email, boss.timezone, boss.company);
+        // Create Boss AI Agent after login with retry mechanism
+        await createBossAIAgent(boss._id.toString(), boss.name, boss.email, boss.timezone, boss.company, boss.position);
 
         console.log(`✅ Boss logged in: ${email} from ${boss.company}`);
 
@@ -77,8 +77,8 @@ export async function POST(request) {
     }
 }
 
-// Create Boss AI agent
-async function createBossAIAgent(bossId, name, email, timezone, company) {
+// Create Boss AI agent with proper error handling
+async function createBossAIAgent(bossId, name, email, timezone, company, position) {
     try {
         const boss = await Boss.findById(bossId);
         if (!boss) {
@@ -86,38 +86,60 @@ async function createBossAIAgent(bossId, name, email, timezone, company) {
             return;
         }
 
-        // Call MCP server to create BOSS agent
-        const response = await fetch('http://localhost:5000/create-boss-agent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                bossId: bossId,
-                name: name,
-                email: email,
-                timezone: timezone,
-                company: company
-            }),
-        });
+        console.log(`🤖 Creating Boss AI Agent for ${name} at ${company}...`);
 
-        if (response.ok) {
-            const result = await response.json();
-            
-            // Update boss with agent info
-            if (boss.bossAgent.status === 'not_created') {
-                boss.bossAgent.agentId = result.agentId;
-                boss.bossAgent.status = 'created';
-                boss.bossAgent.createdAt = new Date();
-                await boss.save();
+        // Always try to create/ensure agent exists with retry
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+            try {
+                const response = await fetch('http://localhost:5000/create-boss-agent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        bossId: bossId,
+                        name: name,
+                        email: email,
+                        timezone: timezone,
+                        company: company,
+                        position: position
+                    }),
+                    timeout: 10000
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // Update boss with agent info regardless of current status
+                    boss.bossAgent.agentId = result.agentId;
+                    boss.bossAgent.status = 'created';
+                    boss.bossAgent.createdAt = new Date();
+                    await boss.save();
+
+                    console.log(`✅ Boss AI Agent created for ${email}: ${result.agentId}`);
+                    return;
+                } else {
+                    const errorText = await response.text();
+                    console.error(`❌ MCP server error (attempt ${attempts + 1}):`, response.status, errorText);
+                }
+            } catch (fetchError) {
+                console.error(`❌ Fetch error (attempt ${attempts + 1}):`, fetchError.message);
             }
-
-            console.log(`🤖 Boss AI Agent created for ${email}: ${result.agentId}`);
-        } else {
-            const errorText = await response.text();
-            console.error('Error response from MCP server:', response.status, errorText);
+            
+            attempts++;
+            
+            // Wait before retry
+            if (attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
+        
+        console.error(`❌ Failed to create Boss AI agent after ${maxAttempts} attempts`);
+        
     } catch (error) {
         console.error('Error creating Boss AI agent:', error);
     }
-} 
+}
