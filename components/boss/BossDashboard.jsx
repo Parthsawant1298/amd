@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Building2, Users, TrendingUp, Calendar } from 'lucide-react';
+import A2ATestComponent from './A2ATestComponent';
 
 const BossDashboard = () => {
     const router = useRouter();
@@ -416,6 +417,13 @@ const BossDashboard = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* A2A Testing Component - Only show if Boss AI is active */}
+                {boss?.bossAgent?.status !== 'not_created' && (
+                    <div className="mt-8">
+                        <A2ATestComponent />
+                    </div>
+                )}
 
                 {/* Boss AI Chat Interface */}
                 {boss?.bossAgent?.status !== 'not_created' && (

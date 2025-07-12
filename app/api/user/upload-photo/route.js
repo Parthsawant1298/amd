@@ -1,12 +1,12 @@
-import cloudinary from '@/lib/cloudinary';
+// app/api/user/update-profile/route.js
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-export async function POST(request) {
+export async function PUT(request) {
     try {
-        // Check auth
+        // Check user authentication
         const cookieStore = await cookies();
         const userId = cookieStore.get('userId')?.value;
 
@@ -18,60 +18,61 @@ export async function POST(request) {
         }
 
         await connectDB();
+        const user = await User.findById(userId);
 
-        // Get form data
-        const formData = await request.formData();
-        const file = formData.get('photo');
-
-        if (!file) {
+        if (!user) {
             return NextResponse.json(
-                { error: 'No file provided' },
+                { error: 'User not found' },
+                { status: 404 }
+            );
+        }
+
+        const { name, timezone } = await request.json();
+
+        // Basic validation
+        if (!name || !timezone) {
+            return NextResponse.json(
+                { error: 'Name and timezone are required' },
                 { status: 400 }
             );
         }
 
-        // Convert to buffer
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
+        // Validate name
+        if (name.trim().length < 2) {
+            return NextResponse.json(
+                { error: 'Name must be at least 2 characters' },
+                { status: 400 }
+            );
+        }
 
-        // Upload to Cloudinary
-        const uploadResult = await new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream(
-                {
-                    resource_type: 'image',
-                    folder: 'profile_photos',
-                    transformation: [
-                        { width: 300, height: 300, crop: 'fill' },
-                        { quality: 'auto' }
-                    ]
-                },
-                (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                }
-            ).end(buffer);
-        });
-
-        // Update user
-        const user = await User.findByIdAndUpdate(
+        // Update user profile
+        const updatedUser = await User.findByIdAndUpdate(
             userId,
-            { profilePhoto: uploadResult.secure_url },
-            { new: true }
+            {
+                name: name.trim(),
+                timezone: timezone
+            },
+            { new: true, runValidators: true }
         );
 
-        console.log(`📸 Profile photo updated for ${user.email}`);
+        console.log(`📝 User profile updated: ${updatedUser.email}`);
 
         return NextResponse.json({
             success: true,
-            profilePhoto: uploadResult.secure_url,
-            message: 'Profile photo updated'
+            message: 'Profile updated successfully',
+            user: {
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                timezone: updatedUser.timezone
+            }
         });
 
     } catch (error) {
-        console.error('Photo upload error:', error);
+        console.error('User profile update error:', error);
         return NextResponse.json(
-            { error: 'Failed to upload photo' },
+            { error: 'Failed to update profile' },
             { status: 500 }
         );
     }
-} 
+}
